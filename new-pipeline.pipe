@@ -3,17 +3,17 @@
     {
       "id": "webhook_model_input",
       "provider": "webhook",
-      "name": "Web Hook - Model Upload",
+      "name": "Model Folder Analysis Webhook",
       "config": {
         "hideForm": true,
         "mode": "Source",
-        "type": "webhook",
-        "name": "Web Hook",
-        "description": "Accept model file upload (PyTorch/TensorFlow/ONNX)",
         "parameters": {
-          "path": "/analyze-model",
-          "method": "POST"
-        }
+          "model_input_folder": "model_input/Transfer-Model_original",
+          "target": "amd-vitis-ai",
+          "framework_hint": "pytorch"
+        },
+        "type": "webhook",
+        "name": "Model Folder Analysis Webhook"
       },
       "ui": {
         "position": {
@@ -32,23 +32,19 @@
         "default": {
           "advanced_mode": false,
           "instructions": [
-            "Load the uploaded PyTorch or TensorFlow model file.",
-            "Convert to ONNX format for universal compatibility analysis.",
-            "Parse the ONNX graph and extract all computational operations.",
-            "For each operation, capture: name, type (Conv, BatchNorm, ReLU, etc), inputs, outputs, attributes.",
-            "Return structured JSON with total operation count and detailed operation list.",
-            "Include model metadata: framework, input shapes, output shapes."
+            "Read the incoming webhook payload. It should include model_input_folder, target, and framework_hint. Default to model_input_folder=model_input/Transfer-Model_original, target=amd-vitis-ai, and framework_hint=pytorch if fields are missing.",
+            "Use the filesystem tool to inspect the local model_input_folder path.",
+            "List Python files and prioritize files containing nn.Module classes, forward methods, layer definitions, tensor operations, dataloaders, and training or evaluation entry points.",
+            "Extract model classes, __init__ layer definitions, forward() logic, helper functions, and explicit tensor operations.",
+            "Return structured JSON with model_input_folder, framework, candidate files, discovered classes/functions, and an operator inventory with file path and usage context."
           ]
         },
-        "name": "Model Extractor",
-        "parameters": {
-          "google": {}
-        }
+        "name": "Model Extractor"
       },
       "ui": {
         "position": {
-          "x": 300,
-          "y": 150
+          "x": 320,
+          "y": 360
         },
         "nodeType": "default",
         "formDataValid": true
@@ -57,40 +53,30 @@
         {
           "lane": "questions",
           "from": "webhook_model_input"
-        },
-        {
-          "lane": "questions",
-          "from": "prompt_1"
         }
       ]
     },
     {
       "id": "agent_rag_vitis_docs",
       "provider": "agent_deepagent",
-      "name": "Vitis AI RAG Agent",
+      "name": "Vitis AI Compatibility Agent",
       "config": {
         "default": {
           "advanced_mode": false,
           "instructions": [
-            "Receive list of extracted operations from Model Extraction Agent.",
-            "For each operation type (Conv, BatchNorm, ReLU, AdaptiveAvgPool, etc):",
-            "  1. Search Vitis AI documentation using semantic similarity.",
-            "  2. Determine if operation is natively supported by Vitis AI.",
-            "  3. Extract constraints: data types (int8, float32), kernel sizes, padding modes.",
-            "  4. Find recommended alternatives for unsupported operations.",
-            "Build compatibility report with support status for each operation.",
-            "Return JSON with: supported_ops count, unsupported_ops list, constraints_per_op."
+            "Receive the operator inventory from the Model Extraction Agent.",
+            "Fetch and use the AMD Vitis AI supported operators and DPU limitations documentation: https://docs.amd.com/r/3.0-English/ug1414-vitis-ai/Supported-Operators-and-DPU-Limitations.",
+            "Classify each extracted operator as supported on DPU, conditionally supported, CPU fallback likely, or unsupported/rewrite required.",
+            "Call out quantization, static shape, custom op, grouped convolution, dilation, transpose convolution, elementwise, reduction, slicing, and activation risks.",
+            "Return JSON with supported_ops count, unsupported_ops list, constraints_per_op, dpu_risks, and evidence for each classification."
           ]
         },
-        "name": "Vitis RAG",
-        "parameters": {
-          "google": {}
-        }
+        "name": "Vitis Compatibility"
       },
       "ui": {
         "position": {
-          "x": 500,
-          "y": 150
+          "x": 560,
+          "y": 360
         },
         "nodeType": "default",
         "formDataValid": true
@@ -110,28 +96,19 @@
         "default": {
           "advanced_mode": false,
           "instructions": [
-            "Receive compatibility report and unsupported operations list.",
-            "Generate CONSERVATIVE refactoring strategy with these priorities:",
-            "  1. MINIMIZE code changes - only replace if absolutely necessary.",
-            "  2. Accept some operations remaining unsupported (e.g., 85% compatibility OK).",
-            "  3. Focus on quick, low-risk operator replacements (2-4 hour effort).",
-            "For each unsupported op, suggest ONE replacement operator with reasoning.",
-            "Estimate metrics:",
-            "  - Final Vitis AI compatibility percentage (target: 80-90%)",
-            "  - Estimated accuracy drop (typical: 0.5-1.2%)",
-            "  - Development effort hours (target: 2-4 hours)",
-            "Return JSON with strategy, changes array, metrics, and implementation notes."
+            "Receive the compatibility report and unsupported operations list.",
+            "Generate a conservative refactoring strategy that minimizes code changes and prioritizes low-risk replacements.",
+            "For each unsupported or risky operator, suggest one replacement operator or code change with reasoning.",
+            "Estimate final Vitis AI compatibility percentage, likely accuracy impact, and development effort.",
+            "Return JSON with strategy, changes array, metrics, implementation notes, and any accepted residual risks."
           ]
         },
-        "name": "Conservative Proposal",
-        "parameters": {
-          "google": {}
-        }
+        "name": "Conservative Proposal"
       },
       "ui": {
         "position": {
-          "x": 700,
-          "y": 50
+          "x": 820,
+          "y": 250
         },
         "nodeType": "default",
         "formDataValid": true
@@ -151,33 +128,19 @@
         "default": {
           "advanced_mode": false,
           "instructions": [
-            "Receive compatibility report and unsupported operations list.",
-            "Generate AGGRESSIVE refactoring strategy with these priorities:",
-            "  1. MAXIMIZE compatibility - achieve 100% Vitis AI support.",
-            "  2. Include INT8 quantization for hardware acceleration.",
-            "  3. Provide deployment-ready code structure.",
-            "For EVERY unsupported op, suggest replacement + provide quantization approach.",
-            "Include quantization strategy details:",
-            "  - Type: Post-Training Quantization (PTQ) vs Quantization-Aware Training (QAT)",
-            "  - Calibration dataset requirements",
-            "  - INT8 conversion process for supported ops",
-            "Estimate metrics:",
-            "  - Final Vitis AI compatibility: 100%",
-            "  - Inference speedup on Xilinx hardware (typical: 3.5-4.2x)",
-            "  - Estimated accuracy drop (typical: 0.2-0.8%)",
-            "  - Development effort hours (target: 6-10 hours)",
-            "Return JSON with strategy, changes array, quantization_plan, metrics, and code_structure."
+            "Receive the compatibility report and unsupported operations list.",
+            "Generate an aggressive refactoring strategy that targets full Vitis AI DPU compatibility where practical.",
+            "Replace unsupported or risky operations with static-shape, quantization-friendly, DPU-supported blocks.",
+            "Include INT8 quantization guidance, calibration dataset requirements, and deployment-oriented code structure.",
+            "Return JSON with strategy, changes array, quantization_plan, metrics, code_structure, and migration checklist."
           ]
         },
-        "name": "Aggressive Proposal",
-        "parameters": {
-          "google": {}
-        }
+        "name": "Aggressive Proposal"
       },
       "ui": {
         "position": {
-          "x": 700,
-          "y": 250
+          "x": 820,
+          "y": 470
         },
         "nodeType": "default",
         "formDataValid": true
@@ -190,121 +153,184 @@
       ]
     },
     {
-      "id": "response_final_answers",
-      "provider": "response_answers",
-      "name": "Return Answers",
+      "id": "agent_report_writer",
+      "provider": "agent_deepagent",
+      "name": "Report Writer Agent",
       "config": {
-        "laneName": "answers",
-        "name": "Return Analysis Results",
-        "description": "Return complete analysis with both proposals"
+        "default": {
+          "advanced_mode": false,
+          "instructions": [
+            "Combine the model extraction, Vitis compatibility audit, conservative proposal, and aggressive proposal into one Markdown report.",
+            "The report must include: model input folder scanned, model files discovered, classes/functions extracted, operator inventory, compatibility table, DPU risks, conservative plan, aggressive plan, and migration checklist.",
+            "Use the filesystem tool to write the report to reports/model_input_vitis_ai_compatibility.md.",
+            "Return a concise final answer that includes the report path."
+          ]
+        },
+        "name": "Report Writer"
       },
       "ui": {
         "position": {
-          "x": 900,
-          "y": 150
+          "x": 1060,
+          "y": 360
         },
         "nodeType": "default",
         "formDataValid": true
       },
       "input": [
         {
-          "lane": "answers",
+          "lane": "questions",
           "from": "agent_proposal_conservative"
         },
         {
-          "lane": "answers",
+          "lane": "questions",
           "from": "agent_proposal_aggressive"
         }
       ]
     },
     {
-      "id": "prompt_1",
-      "provider": "prompt",
-      "name": "Prompt",
+      "id": "llm_openai_1",
+      "provider": "llm_openai",
+      "name": "OpenAI Reasoning Model",
       "config": {
-        "instructions": [],
-        "name": "Prompt"
+        "profile": "openai-5",
+        "openai-5": {
+          "apikey": "${OPENAI_API_KEY}"
+        },
+        "name": "OpenAI Reasoning Model"
       },
       "ui": {
         "position": {
-          "x": -10,
-          "y": -80
+          "x": 320,
+          "y": 660
         },
         "nodeType": "default",
         "formDataValid": true
       },
-      "input": [
+      "control": [
         {
-          "lane": "documents",
-          "from": "extract_data_1"
+          "classType": "llm",
+          "from": "agent_model_extractor"
+        },
+        {
+          "classType": "llm",
+          "from": "agent_rag_vitis_docs"
+        },
+        {
+          "classType": "llm",
+          "from": "agent_proposal_conservative"
+        },
+        {
+          "classType": "llm",
+          "from": "agent_proposal_aggressive"
+        },
+        {
+          "classType": "llm",
+          "from": "agent_report_writer"
         }
       ]
     },
     {
-      "id": "extract_data_1",
-      "provider": "extract_data",
-      "name": "Data Extractor",
+      "id": "tool_http_request_1",
+      "provider": "tool_http_request",
+      "name": "AMD Documentation Fetcher",
       "config": {
-        "profile": "default",
-        "default": {
-          "fields": [
-            {
-              "column": "column",
-              "defval": "",
-              "type": "text"
-            }
-          ]
-        },
-        "name": "Data Extractor"
+        "type": "tool_http_request",
+        "allowGET": true,
+        "allowPOST": false,
+        "allowPUT": false,
+        "allowPATCH": false,
+        "allowDELETE": false,
+        "allowHEAD": true,
+        "allowOPTIONS": false,
+        "urlWhitelist": [
+          {
+            "whitelistPattern": "^https://docs\\.amd\\.com/.*"
+          }
+        ],
+        "rateLimitPerSecond": 5,
+        "rateLimitPerMinute": 60,
+        "maxConcurrentRequests": 4,
+        "name": "AMD Documentation Fetcher"
       },
       "ui": {
         "position": {
-          "x": -240,
-          "y": -90
-        },
-        "nodeType": "default",
-        "formDataValid": true
-      }
-    },
-    {
-      "id": "dropper_1",
-      "provider": "dropper",
-      "name": "Dropper",
-      "config": {
-        "hideForm": true,
-        "mode": "Source",
-        "parameters": {},
-        "type": "dropper",
-        "name": "Dropper"
-      },
-      "ui": {
-        "position": {
-          "x": -250,
-          "y": 150
+          "x": 560,
+          "y": 660
         },
         "nodeType": "default",
         "formDataValid": true
-      }
+      },
+      "control": [
+        {
+          "classType": "tool",
+          "from": "agent_rag_vitis_docs"
+        }
+      ]
     },
     {
-      "id": "parse_1",
-      "provider": "parse",
-      "name": "Parser",
+      "id": "tool_filesystem_1",
+      "provider": "tool_filesystem",
+      "name": "Model Input and Report Filesystem Tool",
       "config": {
-        "name": "Parser"
+        "type": "tool_filesystem",
+        "allowRead": true,
+        "allowWrite": true,
+        "allowList": true,
+        "allowMkdir": true,
+        "allowStat": true,
+        "allowDelete": false,
+        "pathWhitelist": [
+          {
+            "whitelistPattern": "^model_input/.*"
+          },
+          {
+            "whitelistPattern": "^reports/.*"
+          },
+          {
+            "whitelistPattern": "^analysis/.*"
+          }
+        ],
+        "name": "Model Input and Report Filesystem Tool"
       },
       "ui": {
         "position": {
-          "x": -10,
-          "y": 130
+          "x": 820,
+          "y": 660
+        },
+        "nodeType": "default",
+        "formDataValid": true
+      },
+      "control": [
+        {
+          "classType": "tool",
+          "from": "agent_model_extractor"
+        },
+        {
+          "classType": "tool",
+          "from": "agent_report_writer"
+        }
+      ]
+    },
+    {
+      "id": "response_final_answers",
+      "provider": "response_answers",
+      "name": "Return Answers",
+      "config": {
+        "laneName": "answers",
+        "name": "Return Analysis Results"
+      },
+      "ui": {
+        "position": {
+          "x": 1260,
+          "y": 360
         },
         "nodeType": "default",
         "formDataValid": true
       },
       "input": [
         {
-          "lane": "tags",
-          "from": "dropper_1"
+          "lane": "answers",
+          "from": "agent_report_writer"
         }
       ]
     }
@@ -317,10 +343,10 @@
     10
   ],
   "version": 1,
-  "docRevision": 40,
+  "docRevision": 42,
   "metadata": {
     "name": "Vitis AI Model Compatibility Analyzer",
-    "description": "Analyze AI models (PyTorch/TensorFlow) for Vitis AI hardware compatibility and propose refactoring strategies",
+    "description": "Analyze a local deep learning model folder for Vitis AI hardware compatibility and propose refactoring strategies",
     "author": "Hackathon Team",
     "created_date": "2026-06-05",
     "tags": [
@@ -329,6 +355,6 @@
       "hardware-optimization",
       "porting"
     ],
-    "flow_description": "Webhook → Extract Model → RAG Search Vitis Docs → Parallel Proposals (Conservative + Aggressive) → Return Results"
+    "flow_description": "Webhook -> Extract local model folder -> Check Vitis docs -> Parallel proposals -> Write report -> Return results"
   }
 }

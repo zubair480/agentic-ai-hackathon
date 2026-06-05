@@ -1,0 +1,364 @@
+{
+  "components": [
+    {
+      "id": "webhook_1",
+      "provider": "webhook",
+      "name": "Model Analysis Webhook",
+      "config": {
+        "hideForm": true,
+        "mode": "Source",
+        "parameters": {
+          "model_input_folder": "model_input/Transfer-Model_original",
+          "target": "amd-vitis-ai",
+          "framework_hint": "pytorch"
+        },
+        "type": "webhook",
+        "name": "Model Analysis Webhook"
+      },
+      "ui": {
+        "position": {
+          "x": 300,
+          "y": 420
+        },
+        "nodeType": "default",
+        "formDataValid": true
+      }
+    },
+    {
+      "id": "agent_deepagent_1",
+      "provider": "agent_deepagent",
+      "name": "Model Porting Orchestrator",
+      "config": {
+        "default": {
+          "advanced_mode": false,
+          "instructions": [
+            "You are the main orchestrator for a deep learning model portability analysis pipeline.",
+            "Read the incoming webhook payload. It should include model_input_folder, target, and framework_hint. Default to model_input_folder=model_input/Transfer-Model_original, target=amd-vitis-ai, and framework_hint=pytorch if fields are missing.",
+            "Inspect the local model input folder and delegate folder discovery to the Model Folder Inspector Agent.",
+            "Find model files, especially Python files containing nn.Module classes, forward methods, layer definitions, and tensor operations.",
+            "Delegate operator extraction to the Operator Extractor Agent.",
+            "Fetch and use the AMD Vitis AI supported operators and DPU limitations documentation: https://docs.amd.com/r/3.0-English/ug1414-vitis-ai/Supported-Operators-and-DPU-Limitations.",
+            "Delegate Vitis AI classification to the Vitis Compatibility Auditor.",
+            "Delegate compatible redesign suggestions to the Architecture Proposal Agent.",
+            "Produce a Markdown report with: model input folder scanned, model files discovered, classes/functions extracted, operator inventory, Vitis AI compatibility table, DPU risks, required code changes, proposed compatible architecture, and migration checklist.",
+            "Write the report path in the final answer. Prefer reports/model_input_vitis_ai_compatibility.md when a filesystem tool is available."
+          ]
+        },
+        "name": "Model Porting Orchestrator"
+      },
+      "ui": {
+        "position": {
+          "x": 560,
+          "y": 420
+        },
+        "nodeType": "default",
+        "formDataValid": true
+      },
+      "input": [
+        {
+          "lane": "questions",
+          "from": "webhook_1"
+        }
+      ]
+    },
+    {
+      "id": "agent_deepagent_subagent_1",
+      "provider": "agent_deepagent_subagent",
+      "name": "Model Folder Inspector Agent",
+      "config": {
+        "default": {
+          "advanced_mode": false,
+          "description": "Inspect the local model input folder and identify candidate model files, package structure, framework, and entry points.",
+          "instructions": [
+            "Inspect the provided local model_input_folder path.",
+            "Use the filesystem tool to list and read files under model_input/.",
+            "Find relevant files such as *.py, model definitions, forward() methods, nn.Module subclasses, requirements files, and README usage notes.",
+            "Return a concise folder map and a prioritized list of model files to analyze."
+          ]
+        },
+        "name": "Model Folder Inspector Agent"
+      },
+      "ui": {
+        "position": {
+          "x": 560,
+          "y": 660
+        },
+        "nodeType": "default",
+        "formDataValid": true
+      },
+      "control": [
+        {
+          "classType": "deepagent",
+          "from": "agent_deepagent_1"
+        }
+      ]
+    },
+    {
+      "id": "agent_deepagent_subagent_2",
+      "provider": "agent_deepagent_subagent",
+      "name": "Operator Extractor Agent",
+      "config": {
+        "default": {
+          "advanced_mode": false,
+          "description": "Extract model classes, functions, layers, and tensor operations from the discovered model files.",
+          "instructions": [
+            "Parse the selected model files and extract nn.Module classes, __init__ layer definitions, forward() methods, and helper functions.",
+            "Extract operators including nn.Conv2d, nn.BatchNorm2d, nn.ReLU, nn.MaxPool2d, nn.ConvTranspose2d, torch.cat, torch.abs, torch.sub, tensor.mean, tensor.pow, tensor.sum, slicing, chunking, reshaping, and custom modules.",
+            "Return an operator inventory with file path, class/function, line evidence where available, and usage context."
+          ]
+        },
+        "name": "Operator Extractor Agent"
+      },
+      "ui": {
+        "position": {
+          "x": 850,
+          "y": 660
+        },
+        "nodeType": "default",
+        "formDataValid": true
+      },
+      "control": [
+        {
+          "classType": "deepagent",
+          "from": "agent_deepagent_1"
+        }
+      ]
+    },
+    {
+      "id": "agent_deepagent_subagent_3",
+      "provider": "agent_deepagent_subagent",
+      "name": "Vitis Compatibility Auditor",
+      "config": {
+        "default": {
+          "advanced_mode": false,
+          "description": "Compare extracted model operators against AMD Vitis AI supported operators and DPU limitations.",
+          "instructions": [
+            "Use the AMD Vitis AI supported operators and DPU limitations documentation as the compatibility reference.",
+            "Classify each extracted operator as supported on DPU, conditionally supported, CPU fallback likely, or unsupported/rewrite required.",
+            "Call out quantization, dynamic shape, custom op, grouped convolution, dilation, transpose convolution, elementwise, reduction, slicing, and activation risks.",
+            "Return a compatibility table and the evidence behind each classification."
+          ]
+        },
+        "name": "Vitis Compatibility Auditor"
+      },
+      "ui": {
+        "position": {
+          "x": 1140,
+          "y": 660
+        },
+        "nodeType": "default",
+        "formDataValid": true
+      },
+      "control": [
+        {
+          "classType": "deepagent",
+          "from": "agent_deepagent_1"
+        }
+      ]
+    },
+    {
+      "id": "agent_deepagent_subagent_4",
+      "provider": "agent_deepagent_subagent",
+      "name": "Architecture Proposal Agent",
+      "config": {
+        "default": {
+          "advanced_mode": false,
+          "description": "Suggest a novel Vitis AI compatible model architecture based on the compatibility audit.",
+          "instructions": [
+            "Design a Vitis-friendly replacement architecture that preserves the original model goal where possible.",
+            "Prefer static-shape, quantization-friendly, DPU-supported blocks.",
+            "Replace risky operations with compatible alternatives, such as resize plus Conv2d instead of ConvTranspose2d when appropriate.",
+            "Return a proposed architecture summary, module-level rewrite plan, and migration checklist."
+          ]
+        },
+        "name": "Architecture Proposal Agent"
+      },
+      "ui": {
+        "position": {
+          "x": 1430,
+          "y": 660
+        },
+        "nodeType": "default",
+        "formDataValid": true
+      },
+      "control": [
+        {
+          "classType": "deepagent",
+          "from": "agent_deepagent_1"
+        }
+      ]
+    },
+    {
+      "id": "llm_openai_1",
+      "provider": "llm_openai",
+      "name": "OpenAI Reasoning Model",
+      "config": {
+        "profile": "openai-5",
+        "openai-5": {
+          "apikey": "${OPENAI_API_KEY}"
+        },
+        "name": "OpenAI Reasoning Model"
+      },
+      "ui": {
+        "position": {
+          "x": 560,
+          "y": 880
+        },
+        "nodeType": "default",
+        "formDataValid": true
+      },
+      "control": [
+        {
+          "classType": "llm",
+          "from": "agent_deepagent_1"
+        },
+        {
+          "classType": "llm",
+          "from": "agent_deepagent_subagent_1"
+        },
+        {
+          "classType": "llm",
+          "from": "agent_deepagent_subagent_2"
+        },
+        {
+          "classType": "llm",
+          "from": "agent_deepagent_subagent_3"
+        },
+        {
+          "classType": "llm",
+          "from": "agent_deepagent_subagent_4"
+        }
+      ]
+    },
+    {
+      "id": "tool_http_request_1",
+      "provider": "tool_http_request",
+      "name": "AMD Documentation Fetcher",
+      "config": {
+        "type": "tool_http_request",
+        "allowGET": true,
+        "allowPOST": false,
+        "allowPUT": false,
+        "allowPATCH": false,
+        "allowDELETE": false,
+        "allowHEAD": true,
+        "allowOPTIONS": false,
+        "urlWhitelist": [
+          {
+            "whitelistPattern": "^https://docs\\.amd\\.com/.*"
+          }
+        ],
+        "rateLimitPerSecond": 5,
+        "rateLimitPerMinute": 60,
+        "maxConcurrentRequests": 4,
+        "name": "AMD Documentation Fetcher"
+      },
+      "ui": {
+        "position": {
+          "x": 1140,
+          "y": 880
+        },
+        "nodeType": "default",
+        "formDataValid": true
+      },
+      "control": [
+        {
+          "classType": "tool",
+          "from": "agent_deepagent_1"
+        },
+        {
+          "classType": "tool",
+          "from": "agent_deepagent_subagent_1"
+        },
+        {
+          "classType": "tool",
+          "from": "agent_deepagent_subagent_3"
+        }
+      ]
+    },
+    {
+      "id": "tool_filesystem_1",
+      "provider": "tool_filesystem",
+      "name": "Model Input and Report Filesystem Tool",
+      "config": {
+        "type": "tool_filesystem",
+        "allowRead": true,
+        "allowWrite": true,
+        "allowList": true,
+        "allowMkdir": true,
+        "allowStat": true,
+        "allowDelete": false,
+        "pathWhitelist": [
+          {
+            "whitelistPattern": "^model_input/.*"
+          },
+          {
+            "whitelistPattern": "^reports/.*"
+          },
+          {
+            "whitelistPattern": "^analysis/.*"
+          }
+        ],
+        "name": "Model Input and Report Filesystem Tool"
+      },
+      "ui": {
+        "position": {
+          "x": 1430,
+          "y": 880
+        },
+        "nodeType": "default",
+        "formDataValid": true
+      },
+      "control": [
+        {
+          "classType": "tool",
+          "from": "agent_deepagent_1"
+        },
+        {
+          "classType": "tool",
+          "from": "agent_deepagent_subagent_1"
+        },
+        {
+          "classType": "tool",
+          "from": "agent_deepagent_subagent_2"
+        },
+        {
+          "classType": "tool",
+          "from": "agent_deepagent_subagent_4"
+        }
+      ]
+    },
+    {
+      "id": "response_answers_1",
+      "provider": "response_answers",
+      "name": "Return Compatibility Report Summary",
+      "config": {
+        "laneName": "answers",
+        "name": "Return Compatibility Report Summary"
+      },
+      "ui": {
+        "position": {
+          "x": 850,
+          "y": 420
+        },
+        "nodeType": "default",
+        "formDataValid": true
+      },
+      "input": [
+        {
+          "lane": "answers",
+          "from": "agent_deepagent_1"
+        }
+      ]
+    }
+  ],
+  "project_id": "c0c061a9-5758-46e0-a49e-ef94aa2e2e92",
+  "version": 1,
+  "isLocked": false,
+  "snapToGrid": true,
+  "snapGridSize": [
+    10,
+    10
+  ],
+  "docRevision": 7
+}

@@ -23,12 +23,19 @@
     {
       "id": "agent_deepagent_1",
       "provider": "agent_deepagent",
-      "name": "Deep Agent",
+      "name": "Deep Model Parser Agent",
       "config": {
         "default": {
-          "advanced_mode": false
+          "advanced_mode": false,
+          "instructions": [
+            "Extract the functions from a model which can be used for comparison.",
+            "You should be able to extract any calculative function to assess the coimpatibilty on hardware that it can run and provide a detail analysis on what fits and what's incompatible that can be suggested to fix."
+          ]
         },
-        "name": "Deep Agent"
+        "name": "Deep Agent",
+        "parameters": {
+          "google": {}
+        }
       },
       "ui": {
         "position": {
@@ -268,6 +275,65 @@
           "from": "question_1"
         }
       ]
+    },
+    {
+      "id": "agent_deepagent_subagent_1",
+      "provider": "agent_deepagent_subagent",
+      "name": "Deep Agent Subagent",
+      "config": {
+        "default": {
+          "advanced_mode": false,
+          "description": "Cross check to find if the analysis had compatiblity or not and on what specifications.",
+          "instructions": [
+            "Cross check to find if the analysis had compatiblity or not and on what specifications."
+          ],
+          "system_prompt": ""
+        },
+        "name": "Deep Agent Subagent",
+        "parameters": {
+          "google": {}
+        }
+      },
+      "ui": {
+        "position": {
+          "x": 500,
+          "y": 720
+        },
+        "nodeType": "default",
+        "formDataValid": true
+      },
+      "control": [
+        {
+          "classType": "deepagent",
+          "from": "agent_deepagent_1"
+        }
+      ]
+    },
+    {
+      "id": "llm_qwen_1",
+      "provider": "llm_qwen",
+      "name": "Qwen",
+      "config": {
+        "profile": "qwen-flash",
+        "qwen-flash": {
+          "region": "us"
+        },
+        "name": "Qwen"
+      },
+      "ui": {
+        "position": {
+          "x": 480,
+          "y": 830
+        },
+        "nodeType": "default",
+        "formDataValid": false
+      },
+      "control": [
+        {
+          "classType": "llm",
+          "from": "agent_deepagent_subagent_1"
+        }
+      ]
     }
   ],
   "project_id": "e781751e-e21c-4fea-a461-0bf7f38259f9",
@@ -278,5 +344,5 @@
     10
   ],
   "version": 1,
-  "docRevision": 14
+  "docRevision": 26
 }

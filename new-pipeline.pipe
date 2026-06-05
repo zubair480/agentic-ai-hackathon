@@ -1,68 +1,88 @@
 {
   "components": [
     {
-      "id": "agent_deepagent_1",
-      "provider": "agent_deepagent",
-      "name": "Deep Model Parser Agent",
+      "id": "webhook_model_input",
+      "provider": "webhook",
+      "name": "Web Hook - Model Upload",
       "config": {
-        "default": {
-          "advanced_mode": false,
-          "instructions": [
-            "Extract the functions from a model which can be used for comparison.",
-            "You should be able to extract any calculative function to assess the coimpatibilty on hardware that it can run and provide a detail analysis on what fits and what's incompatible that can be suggested to fix."
-          ]
-        },
-        "name": "Deep Agent",
+        "hideForm": true,
+        "mode": "Source",
+        "type": "webhook",
+        "name": "Web Hook",
+        "description": "Accept model file upload (PyTorch/TensorFlow/ONNX)",
         "parameters": {
-          "google": {}
+          "path": "/analyze-model",
+          "method": "POST"
         }
       },
       "ui": {
         "position": {
-          "x": 820,
-          "y": 560
+          "x": 100,
+          "y": 360
         },
         "nodeType": "default",
         "formDataValid": true
       }
     },
     {
-      "id": "response_answers_1",
-      "provider": "response_answers",
-      "name": "Return Answers",
+      "id": "agent_model_extractor",
+      "provider": "agent_deepagent",
+      "name": "Model Extraction Agent",
       "config": {
-        "laneName": "answers",
-        "name": "Return Answers"
+        "default": {
+          "advanced_mode": false,
+          "instructions": [
+            "Load the uploaded PyTorch or TensorFlow model file.",
+            "Convert to ONNX format for universal compatibility analysis.",
+            "Parse the ONNX graph and extract all computational operations.",
+            "For each operation, capture: name, type (Conv, BatchNorm, ReLU, etc), inputs, outputs, attributes.",
+            "Return structured JSON with total operation count and detailed operation list.",
+            "Include model metadata: framework, input shapes, output shapes."
+          ]
+        },
+        "name": "Model Extractor",
+        "parameters": {
+          "google": {}
+        }
       },
       "ui": {
         "position": {
-          "x": 1010,
-          "y": 560
+          "x": 300,
+          "y": 150
         },
         "nodeType": "default",
         "formDataValid": true
       },
       "input": [
         {
-          "lane": "answers",
-          "from": "agent_deepagent_1"
+          "lane": "questions",
+          "from": "webhook_model_input"
+        },
+        {
+          "lane": "questions",
+          "from": "prompt_1"
         }
       ]
     },
     {
-      "id": "agent_deepagent_subagent_1",
-      "provider": "agent_deepagent_subagent",
-      "name": "Deep Agent Subagent",
+      "id": "agent_rag_vitis_docs",
+      "provider": "agent_deepagent",
+      "name": "Vitis AI RAG Agent",
       "config": {
         "default": {
           "advanced_mode": false,
-          "description": "Cross check to find if the analysis had compatiblity or not and on what specifications.",
           "instructions": [
-            "Cross check to find if the analysis had compatiblity or not and on what specifications."
-          ],
-          "system_prompt": ""
+            "Receive list of extracted operations from Model Extraction Agent.",
+            "For each operation type (Conv, BatchNorm, ReLU, AdaptiveAvgPool, etc):",
+            "  1. Search Vitis AI documentation using semantic similarity.",
+            "  2. Determine if operation is natively supported by Vitis AI.",
+            "  3. Extract constraints: data types (int8, float32), kernel sizes, padding modes.",
+            "  4. Find recommended alternatives for unsupported operations.",
+            "Build compatibility report with support status for each operation.",
+            "Return JSON with: supported_ops count, unsupported_ops list, constraints_per_op."
+          ]
         },
-        "name": "Deep Agent Subagent",
+        "name": "Vitis RAG",
         "parameters": {
           "google": {}
         }
@@ -70,66 +90,226 @@
       "ui": {
         "position": {
           "x": 500,
-          "y": 720
+          "y": 150
         },
         "nodeType": "default",
         "formDataValid": true
       },
-      "control": [
+      "input": [
         {
-          "classType": "deepagent",
-          "from": "agent_deepagent_1"
+          "lane": "questions",
+          "from": "agent_model_extractor"
         }
       ]
     },
     {
-      "id": "llm_qwen_1",
-      "provider": "llm_qwen",
-      "name": "Qwen",
+      "id": "agent_proposal_conservative",
+      "provider": "agent_deepagent",
+      "name": "Conservative Proposal Agent",
       "config": {
-        "profile": "qwen-flash",
-        "qwen-flash": {
-          "region": "us"
+        "default": {
+          "advanced_mode": false,
+          "instructions": [
+            "Receive compatibility report and unsupported operations list.",
+            "Generate CONSERVATIVE refactoring strategy with these priorities:",
+            "  1. MINIMIZE code changes - only replace if absolutely necessary.",
+            "  2. Accept some operations remaining unsupported (e.g., 85% compatibility OK).",
+            "  3. Focus on quick, low-risk operator replacements (2-4 hour effort).",
+            "For each unsupported op, suggest ONE replacement operator with reasoning.",
+            "Estimate metrics:",
+            "  - Final Vitis AI compatibility percentage (target: 80-90%)",
+            "  - Estimated accuracy drop (typical: 0.5-1.2%)",
+            "  - Development effort hours (target: 2-4 hours)",
+            "Return JSON with strategy, changes array, metrics, and implementation notes."
+          ]
         },
-        "name": "Qwen"
+        "name": "Conservative Proposal",
+        "parameters": {
+          "google": {}
+        }
       },
       "ui": {
         "position": {
-          "x": 480,
-          "y": 830
+          "x": 700,
+          "y": 50
         },
         "nodeType": "default",
-        "formDataValid": false
+        "formDataValid": true
       },
-      "control": [
+      "input": [
         {
-          "classType": "llm",
-          "from": "agent_deepagent_subagent_1"
+          "lane": "questions",
+          "from": "agent_rag_vitis_docs"
         }
       ]
     },
     {
-      "id": "webhook_1",
-      "provider": "webhook",
-      "name": "Web Hook",
+      "id": "agent_proposal_aggressive",
+      "provider": "agent_deepagent",
+      "name": "Aggressive Proposal Agent",
       "config": {
-        "hideForm": true,
-        "mode": "Source",
-        "parameters": {},
-        "type": "webhook",
-        "name": "Web Hook"
+        "default": {
+          "advanced_mode": false,
+          "instructions": [
+            "Receive compatibility report and unsupported operations list.",
+            "Generate AGGRESSIVE refactoring strategy with these priorities:",
+            "  1. MAXIMIZE compatibility - achieve 100% Vitis AI support.",
+            "  2. Include INT8 quantization for hardware acceleration.",
+            "  3. Provide deployment-ready code structure.",
+            "For EVERY unsupported op, suggest replacement + provide quantization approach.",
+            "Include quantization strategy details:",
+            "  - Type: Post-Training Quantization (PTQ) vs Quantization-Aware Training (QAT)",
+            "  - Calibration dataset requirements",
+            "  - INT8 conversion process for supported ops",
+            "Estimate metrics:",
+            "  - Final Vitis AI compatibility: 100%",
+            "  - Inference speedup on Xilinx hardware (typical: 3.5-4.2x)",
+            "  - Estimated accuracy drop (typical: 0.2-0.8%)",
+            "  - Development effort hours (target: 6-10 hours)",
+            "Return JSON with strategy, changes array, quantization_plan, metrics, and code_structure."
+          ]
+        },
+        "name": "Aggressive Proposal",
+        "parameters": {
+          "google": {}
+        }
       },
       "ui": {
         "position": {
-          "x": 580,
-          "y": 500
+          "x": 700,
+          "y": 250
+        },
+        "nodeType": "default",
+        "formDataValid": true
+      },
+      "input": [
+        {
+          "lane": "questions",
+          "from": "agent_rag_vitis_docs"
+        }
+      ]
+    },
+    {
+      "id": "response_final_answers",
+      "provider": "response_answers",
+      "name": "Return Answers",
+      "config": {
+        "laneName": "answers",
+        "name": "Return Analysis Results",
+        "description": "Return complete analysis with both proposals"
+      },
+      "ui": {
+        "position": {
+          "x": 900,
+          "y": 150
+        },
+        "nodeType": "default",
+        "formDataValid": true
+      },
+      "input": [
+        {
+          "lane": "answers",
+          "from": "agent_proposal_conservative"
+        },
+        {
+          "lane": "answers",
+          "from": "agent_proposal_aggressive"
+        }
+      ]
+    },
+    {
+      "id": "prompt_1",
+      "provider": "prompt",
+      "name": "Prompt",
+      "config": {
+        "instructions": [],
+        "name": "Prompt"
+      },
+      "ui": {
+        "position": {
+          "x": -10,
+          "y": -80
+        },
+        "nodeType": "default",
+        "formDataValid": true
+      },
+      "input": [
+        {
+          "lane": "documents",
+          "from": "extract_data_1"
+        }
+      ]
+    },
+    {
+      "id": "extract_data_1",
+      "provider": "extract_data",
+      "name": "Data Extractor",
+      "config": {
+        "profile": "default",
+        "default": {
+          "fields": [
+            {
+              "column": "column",
+              "defval": "",
+              "type": "text"
+            }
+          ]
+        },
+        "name": "Data Extractor"
+      },
+      "ui": {
+        "position": {
+          "x": -240,
+          "y": -90
         },
         "nodeType": "default",
         "formDataValid": true
       }
+    },
+    {
+      "id": "dropper_1",
+      "provider": "dropper",
+      "name": "Dropper",
+      "config": {
+        "hideForm": true,
+        "mode": "Source",
+        "parameters": {},
+        "type": "dropper",
+        "name": "Dropper"
+      },
+      "ui": {
+        "position": {
+          "x": -250,
+          "y": 150
+        },
+        "nodeType": "default",
+        "formDataValid": true
+      }
+    },
+    {
+      "id": "parse_1",
+      "provider": "parse",
+      "name": "Parser",
+      "config": {
+        "name": "Parser"
+      },
+      "ui": {
+        "position": {
+          "x": -10,
+          "y": 130
+        },
+        "nodeType": "default",
+        "formDataValid": true
+      },
+      "input": [
+        {
+          "lane": "tags",
+          "from": "dropper_1"
+        }
+      ]
     }
   ],
-  "project_id": "e781751e-e21c-4fea-a461-0bf7f38259f9",
+  "project_id": "vitis-ai-analyzer-2024",
   "isLocked": false,
   "snapToGrid": true,
   "snapGridSize": [
@@ -137,5 +317,18 @@
     10
   ],
   "version": 1,
-  "docRevision": 44
+  "docRevision": 40,
+  "metadata": {
+    "name": "Vitis AI Model Compatibility Analyzer",
+    "description": "Analyze AI models (PyTorch/TensorFlow) for Vitis AI hardware compatibility and propose refactoring strategies",
+    "author": "Hackathon Team",
+    "created_date": "2026-06-05",
+    "tags": [
+      "vitis-ai",
+      "model-analysis",
+      "hardware-optimization",
+      "porting"
+    ],
+    "flow_description": "Webhook → Extract Model → RAG Search Vitis Docs → Parallel Proposals (Conservative + Aggressive) → Return Results"
+  }
 }

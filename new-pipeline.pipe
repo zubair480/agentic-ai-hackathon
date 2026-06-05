@@ -1,0 +1,282 @@
+{
+  "components": [
+    {
+      "id": "chat_1",
+      "provider": "chat",
+      "name": "Chat",
+      "config": {
+        "hideForm": true,
+        "mode": "Source",
+        "parameters": {},
+        "type": "chat",
+        "name": "Chat"
+      },
+      "ui": {
+        "position": {
+          "x": 630,
+          "y": 560
+        },
+        "nodeType": "default",
+        "formDataValid": true
+      }
+    },
+    {
+      "id": "agent_deepagent_1",
+      "provider": "agent_deepagent",
+      "name": "Deep Agent",
+      "config": {
+        "default": {
+          "advanced_mode": false
+        },
+        "name": "Deep Agent"
+      },
+      "ui": {
+        "position": {
+          "x": 820,
+          "y": 560
+        },
+        "nodeType": "default",
+        "formDataValid": true
+      },
+      "input": [
+        {
+          "lane": "questions",
+          "from": "chat_1"
+        }
+      ]
+    },
+    {
+      "id": "tool_pipe_1",
+      "provider": "tool_pipe",
+      "name": "Pipeline Tool",
+      "config": {
+        "return_type": "text",
+        "tool_description": "",
+        "type": "tool_pipe",
+        "name": "Pipeline Tool"
+      },
+      "ui": {
+        "position": {
+          "x": 890,
+          "y": 780
+        },
+        "nodeType": "default",
+        "formDataValid": false
+      },
+      "control": [
+        {
+          "classType": "tool",
+          "from": "agent_deepagent_1"
+        }
+      ]
+    },
+    {
+      "id": "llm_gemini_1",
+      "provider": "llm_gemini",
+      "name": "Gemini",
+      "config": {
+        "profile": "gemini-3_1-pro-preview",
+        "1-pro-preview": {},
+        "name": "Gemini"
+      },
+      "ui": {
+        "position": {
+          "x": 730,
+          "y": 720
+        },
+        "nodeType": "default",
+        "formDataValid": false
+      },
+      "control": [
+        {
+          "classType": "llm",
+          "from": "agent_deepagent_1"
+        }
+      ]
+    },
+    {
+      "id": "tool_filesystem_1",
+      "provider": "tool_filesystem",
+      "name": "File System",
+      "config": {
+        "allowDelete": false,
+        "allowList": true,
+        "allowMkdir": true,
+        "allowRead": true,
+        "allowStat": true,
+        "allowWrite": true,
+        "pathWhitelist": [],
+        "type": "tool_filesystem",
+        "name": "File System"
+      },
+      "ui": {
+        "position": {
+          "x": 1050,
+          "y": 700
+        },
+        "nodeType": "default",
+        "formDataValid": true
+      },
+      "control": [
+        {
+          "classType": "tool",
+          "from": "agent_deepagent_1"
+        }
+      ]
+    },
+    {
+      "id": "response_answers_1",
+      "provider": "response_answers",
+      "name": "Return Answers",
+      "config": {
+        "laneName": "answers",
+        "name": "Return Answers"
+      },
+      "ui": {
+        "position": {
+          "x": 1010,
+          "y": 560
+        },
+        "nodeType": "default",
+        "formDataValid": true
+      },
+      "input": [
+        {
+          "lane": "answers",
+          "from": "agent_deepagent_1"
+        }
+      ]
+    },
+    {
+      "id": "image_vision_openai_1",
+      "provider": "image_vision_openai",
+      "name": "OpenAI Vision",
+      "config": {
+        "profile": "openai-4-1",
+        "openai-4-1": {},
+        "name": "OpenAI Vision"
+      },
+      "ui": {
+        "position": {
+          "x": 1100,
+          "y": 790
+        },
+        "nodeType": "default",
+        "formDataValid": false
+      },
+      "input": [
+        {
+          "lane": "documents",
+          "from": "tool_pipe_1"
+        }
+      ]
+    },
+    {
+      "id": "mcp_client_1",
+      "provider": "mcp_client",
+      "name": "MCP Client",
+      "config": {
+        "serverName": "mcp",
+        "transport": "streamable-http",
+        "type": "mcp_client",
+        "name": "MCP Client"
+      },
+      "ui": {
+        "position": {
+          "x": 1220,
+          "y": 720
+        },
+        "nodeType": "default",
+        "formDataValid": true
+      },
+      "control": [
+        {
+          "classType": "tool",
+          "from": "agent_deepagent_1"
+        }
+      ]
+    },
+    {
+      "id": "tool_pipe_2",
+      "provider": "tool_pipe",
+      "name": "Pipeline Tool",
+      "config": {
+        "return_type": "text",
+        "tool_description": "",
+        "type": "tool_pipe",
+        "name": "Pipeline Tool"
+      },
+      "ui": {
+        "position": {
+          "x": 900,
+          "y": 970
+        },
+        "nodeType": "default",
+        "formDataValid": false
+      },
+      "control": [
+        {
+          "classType": "tool",
+          "from": "agent_deepagent_1"
+        }
+      ]
+    },
+    {
+      "id": "question_1",
+      "provider": "question",
+      "name": "Question",
+      "config": {
+        "type": "question",
+        "name": "Question"
+      },
+      "ui": {
+        "position": {
+          "x": 1090,
+          "y": 970
+        },
+        "nodeType": "default",
+        "formDataValid": true
+      },
+      "input": [
+        {
+          "lane": "text",
+          "from": "tool_pipe_2"
+        }
+      ]
+    },
+    {
+      "id": "agent_deepagent_2",
+      "provider": "agent_deepagent",
+      "name": "Deep Agent",
+      "config": {
+        "default": {
+          "advanced_mode": false
+        },
+        "name": "Deep Agent"
+      },
+      "ui": {
+        "position": {
+          "x": 1280,
+          "y": 970
+        },
+        "nodeType": "default",
+        "formDataValid": true
+      },
+      "input": [
+        {
+          "lane": "questions",
+          "from": "question_1"
+        }
+      ]
+    }
+  ],
+  "project_id": "e781751e-e21c-4fea-a461-0bf7f38259f9",
+  "isLocked": false,
+  "snapToGrid": true,
+  "snapGridSize": [
+    10,
+    10
+  ],
+  "version": 1,
+  "docRevision": 14
+}
